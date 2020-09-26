@@ -6,7 +6,9 @@ const bot = new Eris("NzU3NTIxNDkyMDg1OTY0ODMw.X2hm3Q.NehUCdbvirSL1dpJj4CdZqoEWU
 
 aws.config.loadFromPath('credentials.json');
 let polly = new aws.Polly({region:'us-west-2'});
+let wbook = require('./wbook.json');
 
+let isConnection = null;
 let VOICE_CONNECTION = null;
 let TtoV_CHANNEL = "";
 
@@ -27,8 +29,8 @@ bot.on("ready", () => {
 bot.on("messageCreate", (msg) => {
     if (msg.author.bot) return;
 
-    let isConnection = !!VOICE_CONNECTION;
-    if (msg.content == prefix + "summon" && !isConnection) {
+    isConnection = !!VOICE_CONNECTION;
+    if ((msg.content == prefix + "summon" || msg.content == prefix + "s")&& !isConnection) {
         // console.log(msg.member.voiceState.channelID);
         const vc = msg.member.voiceState.channelID;
 
@@ -42,10 +44,75 @@ bot.on("messageCreate", (msg) => {
         } else {
             bot.createMessage(msg.channel.id, "あなたはまだVCに居ないようです。どこに接続するか判断ができませんでした。");
         }
+    } else if (msg.content.startsWith( prefix + "wbook" )) {
+        // 単語登録
+        // guiid.idを取得
+        let guildId = msg.channel.guild.id;
+        // コマンドを分割
+        let com = msg.content.split(' ');
+        let before, after;
+        let addword;
 
+        // コマンドによって処理を分ける
+        switch (com[1]) {
+            case 'add':
+                before = com[2];
+                after = com[3];
+
+                addword = {
+                    "before": before,
+                    "after": after
+                };
+
+                if (wbook[guildId]) {
+                    let i = 0;
+                    let wordsetFlag = true;
+                    wbook[guildId].forEach((wordset) => {
+                        if (wordset.before == before) {
+                            wbook[guildId][i]['after'] = after; 
+                            wordsetFlag = false;
+                        }
+                        i = i + 1;
+                    });
+                    if (wordsetFlag) {
+                        wbook[guildId].push(addword);
+                    }
+                } else {
+                    wbook[guildId] = [addword];
+                }
+                fs.writeFileSync('wbook.json', JSON.stringify(wbook));
+                bot.createMessage(msg.channel.id, '辞書登録: ' + com[2] + ' → ' + com[3]);
+                break;
+            case 'remove':
+            case 'delete':
+                // eslint-disable-next-line no-case-declarations
+                let worddelFlag = false;
+                before = com[2];
+                if (wbook[guildId]) {
+                    let i = 0;
+                    wbook[guildId].forEach((wordset) => {
+                        if (wordset.before == before) {
+                            wbook[guildId].splice(i, 1);
+                            worddelFlag = true;
+                        }
+                        i = i + 1;
+                    });
+                }
+                fs.writeFileSync('wbook.json', JSON.stringify(wbook));
+                if (worddelFlag) {
+                    bot.createMessage(msg.channel.id, '辞書登録解除: ' + com[2]);
+                } else {
+                    bot.createMessage(msg.channel.id, '辞書登録解除する単語がありませんでした。');
+                }
+                // console.log(wbook);
+                break;
+            default:
+                bot.createMessage(msg.channel.id, 'コマンドが間違っているようです。 `' + prefix + 'wbook add <変換前> <変換後>` の形式か、`' + prefix + 'wbook remove <変換を止めたい単語>`の形式でコマンドを打ち込んでください。')
+        }
+        // console.log(msg.channel.guild.id);
     } else if (msg.channel.id == TtoV_CHANNEL) {
         // 終了コマンド end
-        if(msg.content == prefix + "end") {
+        if(msg.content == prefix + "end" || msg.content == prefix + "bye") {
             if(isConnection) {
                 VOICE_CONNECTION.disconnect();
                 VOICE_CONNECTION = null;
@@ -87,12 +154,23 @@ const readText = (msg) => {
                 logStep("readText Try");
 
                 // テキストを作る
-                let author = msg.author.username;
+                let author = "";
+                if (msg.member.nick == null) {
+                    author = msg.author.username;
+                } else {
+                    author = msg.member.nick;
+                }
                 let content = msg.content.replace(/<:(.+?):.+?>/g, '$1 ');
                 content = content.replace(/http(s)?:\/\/([\w-]+\.)+[\w-]+(\/[\w- ./?%&=~]*)?/g, ' URL省略 ');
+                if (wbook[msg.channel.guild.id].length) {
+                    wbook[msg.channel.guild.id].forEach((exchanger) => {
+                        content = content.replace(new RegExp(exchanger.before, 'ig'), exchanger.after);
+                    });
+                }
+                // console.log(content);
                 let id = msg.id;
                 
-                // console.log(content);
+                // console.log(author);
 
                 // synthesizeSpeech
                 let textMsg = author + 'さん。' + content;
@@ -115,10 +193,16 @@ const readText = (msg) => {
                     });
                 }).then( () => {
                     new Promise((resolve) => {
-                        VOICE_CONNECTION.play("sound_" + id + ".mp3");
-                        VOICE_CONNECTION.on("end", () => {
+                        if(isConnection ) {
+                            // 繋がっていれば再生
+                            VOICE_CONNECTION.play("sound_" + id + ".mp3");
+                            VOICE_CONNECTION.on("end", () => {
+                                resolve();
+                            });
+                        } else {
+                            // 切断されていたら再生せずにスルーしてファイルを消すステップに進ませる
                             resolve();
-                        });
+                        }
                     }).then( () => {
                         fs.unlinkSync("sound_" + id + ".mp3");
                         res();
