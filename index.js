@@ -162,6 +162,8 @@ const readText = (msg) => {
                 }
                 let content = msg.content.replace(/<:(.+?):.+?>/g, '$1 ');
                 content = content.replace(/http(s)?:\/\/([\w-]+\.)+[\w-]+(\/[\w- ./?%&=~]*)?/g, ' URL省略 ');
+                content = content.replace(/<#[0-9]+?>/g, ' ディスコードリンク省略 ');
+                
                 if (wbook[msg.channel.guild.id]) {
                     wbook[msg.channel.guild.id].forEach((exchanger) => {
                         content = content.replace(new RegExp(exchanger.before, 'ig'), exchanger.after);
