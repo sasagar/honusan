@@ -106,3 +106,4 @@ dist
 # Credentials
 aws_credentials.csv
 credentials.json
+wbook.json
