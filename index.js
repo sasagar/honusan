@@ -160,9 +160,27 @@ const readText = (msg) => {
                 } else {
                     author = msg.member.nick;
                 }
-                let content = msg.content.replace(/<:(.+?):.+?>/g, '$1 ');
+
+                // fs.writeFile('log.txt',JSON.stringify(msg.channel.guild.channels.find((cnl) => {return cnl.id === "746690794714300417"})),(err) => {return err;});
+                
+                let content = '';
+                // 絵文字の置き換え
+                content = msg.content.replace(/<:(.+?):.+?>/g, '$1 ');
+                // URLの省略
                 content = content.replace(/http(s)?:\/\/([\w-]+\.)+[\w-]+(\/[\w- ./?%&=~]*)?/g, ' URL省略 ');
-                content = content.replace(/<#[0-9]+?>/g, ' ディスコードリンク省略 ');
+                // ディスコード内の飛び先省略
+                content = content.replace(/<#([0-9]+?)>/g, (match, p1) => {
+                    const mentionChannel = msg.channel.guild.channels.find((cnl) => {
+                        return cnl.id == p1;
+                    });
+                    return mentionChannel.name + 'チャンネル';
+                });
+                // メンションの置き換え
+                content = content.replace(/<@!([0-9]+?)>/g, (match, p1) => {
+                    const mentionName = msg.mentions.find(member => member.id === p1);
+                    return mentionName.username;
+                });
+                //console.log(content);
                 
                 if (wbook[msg.channel.guild.id]) {
                     wbook[msg.channel.guild.id].forEach((exchanger) => {
