@@ -163,20 +163,21 @@ const readText = (msg) => {
 
                 // fs.writeFile('log.txt',JSON.stringify(msg.channel.guild.channels.find((cnl) => {return cnl.id === "746690794714300417"})),(err) => {return err;});
                 
-                let content = '';
+                let content = msg.content;;
+                let textMsg = author + 'さん。' + content;
                 // 絵文字の置き換え
-                content = msg.content.replace(/<:(.+?):.+?>/g, '$1 ');
+                textMsg = textMsg.replace(/<:(.+?):.+?>/g, '$1 ');
                 // URLの省略
-                content = content.replace(/http(s)?:\/\/([\w-]+\.)+[\w-]+(\/[\w- ./?%&=~]*)?/g, ' URL省略 ');
+                textMsg = textMsg.replace(/http(s)?:\/\/([\w-]+\.)+[\w-]+(\/[\w- ./?%&=~]*)?/g, ' URL省略 ');
                 // ディスコード内の飛び先省略
-                content = content.replace(/<#([0-9]+?)>/g, (match, p1) => {
+                textMsg = textMsg.replace(/<#([0-9]+?)>/g, (match, p1) => {
                     const mentionChannel = msg.channel.guild.channels.find((cnl) => {
                         return cnl.id == p1;
                     });
                     return mentionChannel.name + 'チャンネル';
                 });
                 // メンションの置き換え
-                content = content.replace(/<@!([0-9]+?)>/g, (match, p1) => {
+                textMsg = textMsg.replace(/<@!([0-9]+?)>/g, (match, p1) => {
                     const mentionName = msg.mentions.find(member => member.id === p1);
                     return mentionName.username;
                 });
@@ -184,7 +185,7 @@ const readText = (msg) => {
                 
                 if (wbook[msg.channel.guild.id]) {
                     wbook[msg.channel.guild.id].forEach((exchanger) => {
-                        content = content.replace(new RegExp(exchanger.before, 'ig'), exchanger.after);
+                        textMsg = textMsg.replace(new RegExp(exchanger.before, 'ig'), exchanger.after);
                     });
                 }
                 // console.log(content);
@@ -193,7 +194,6 @@ const readText = (msg) => {
                 // console.log(author);
 
                 // synthesizeSpeech
-                let textMsg = author + 'さん。' + content;
                 let speechParams = {
                     OutputFormat: 'mp3',
                     VoiceId: voiceId,
