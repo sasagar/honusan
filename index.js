@@ -21,6 +21,10 @@ let descParams = {
     LanguageCode: 'ja-JP'
 };
 
+bot.editStatus("online", {
+ 'name': 'prefex: &',
+ 'type': 0
+});
 
 bot.on("ready", () => {
     console.log("bot is ready at last.");
@@ -163,7 +167,8 @@ const readText = (msg) => {
 
                 // fs.writeFile('log.txt',JSON.stringify(msg.channel.guild.channels.find((cnl) => {return cnl.id === "746690794714300417"})),(err) => {return err;});
                 
-                let content = msg.content;;
+                let content = msg.content;
+                content = content.replace(/>.+?\n/g, '');
                 let textMsg = author + 'さん。' + content;
                 // 絵文字の置き換え
                 textMsg = textMsg.replace(/<:(.+?):.+?>/g, '$1 ');
