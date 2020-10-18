@@ -7,6 +7,7 @@ const bot = new Eris("NzU3NTIxNDkyMDg1OTY0ODMw.X2hm3Q.NehUCdbvirSL1dpJj4CdZqoEWU
 aws.config.loadFromPath('credentials.json');
 let polly = new aws.Polly({region:'us-west-2'});
 let wbook = require('./wbook.json');
+const { Stream } = require("stream");
 
 let isConnection = null;
 let VOICE_CONNECTION = null;
@@ -164,8 +165,6 @@ const readText = (msg) => {
                 } else {
                     author = msg.member.nick;
                 }
-
-                // fs.writeFile('log.txt',JSON.stringify(msg.channel.guild.channels.find((cnl) => {return cnl.id === "746690794714300417"})),(err) => {return err;});
                 
                 let content = msg.content;
                 content = content.replace(/>.+?\n/g, '');
@@ -200,42 +199,54 @@ const readText = (msg) => {
 
                 // synthesizeSpeech
                 let speechParams = {
-                    OutputFormat: 'mp3',
+                    OutputFormat: 'pcm',
                     VoiceId: voiceId,
                     Text: '<prosody rate="fast">' + textMsg + '</prosody>',
-                    SampleRate: '22050',
+                    SampleRate: '16000',
                     TextType: 'ssml'
                 };
 
-                polly.synthesizeSpeech(speechParams).promise().then(data => {
-                    fs.writeFile("sound_" + id + ".mp3", data.AudioStream, (err) => {
-                        if (err) {
-                            console.log(err);
-                            rej(err);
-                        } else {
-                            //console.log('Success');
-                        }
-                    });
-                }).then( () => {
-                    new Promise((resolve) => {
-                        if(isConnection ) {
-                            // 繋がっていれば再生
-                            VOICE_CONNECTION.play("sound_" + id + ".mp3");
+                // polly.synthesizeSpeech(speechParams).promise().then(data => {
+                polly.synthesizeSpeech(speechParams, (err, data) => {
+                    if (data.AudioStream instanceof Buffer) {
+                        let bufferStream = new Stream.Readable();
+                        bufferStream._read = () => {console.log('resd')};
+                        bufferStream.push(data.AudioStream);
+                        if (isConnection) {
+                            VOICE_CONNECTION.play(bufferStream, {format: "pcm", sampleRate: 24000});
                             VOICE_CONNECTION.on("end", () => {
-                                resolve();
+                                console.log("done.");
                             });
-                        } else {
-                            // 切断されていたら再生せずにスルーしてファイルを消すステップに進ませる
-                            resolve();
                         }
-                    }).then( () => {
-                        fs.unlinkSync("sound_" + id + ".mp3");
-                        res();
-                    })
-                })
-                .catch(err => {
-                    console.log(err);
-                    rej(err);
+                    }
+                //     fs.writeFile("sound_" + id + ".mp3", data.AudioStream, (err) => {
+                //         if (err) {
+                //             console.log(err);
+                //             rej(err);
+                //         } else {
+                //             //console.log('Success');
+                //         }
+                //     });
+                // }).then( () => {
+                //     new Promise((resolve) => {
+                //         if(isConnection ) {
+                //             // 繋がっていれば再生
+                //             VOICE_CONNECTION.play("sound_" + id + ".mp3");
+                //             VOICE_CONNECTION.on("end", () => {
+                //                 resolve();
+                //             });
+                //         } else {
+                //             // 切断されていたら再生せずにスルーしてファイルを消すステップに進ませる
+                //             resolve();
+                //         }
+                //     }).then( () => {
+                //         fs.unlinkSync("sound_" + id + ".mp3");
+                //         res();
+                //     })
+                // })
+                // .catch(err => {
+                //     console.log(err);
+                //     rej(err);
                 });
             });                
         } catch(e) {
