@@ -142,6 +142,12 @@ bot.on("messageCreate", (msg) => {
 
 bot.connect();
 
+if (isConnection) {
+	VOICE_CONNECTION.on("userDisconnect", (userID)=>{
+		console.log(userID);
+	});
+}
+
 const readText = (msg) => {
     // console.log(msg);
 
