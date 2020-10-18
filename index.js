@@ -211,11 +211,12 @@ const readText = (msg) => {
                     if (data.AudioStream instanceof Buffer) {
                         let bufferStream = new Stream.Readable();
                         bufferStream._read = () => {console.log('resd')};
-                        bufferStream.push(data.AudioStream);
+                        bufferStream.push(data);
                         if (isConnection) {
                             VOICE_CONNECTION.play(bufferStream, {format: "pcm", sampleRate: 24000});
                             VOICE_CONNECTION.on("end", () => {
                                 console.log("done.");
+                                res();
                             });
                         }
                     }
