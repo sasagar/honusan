@@ -169,6 +169,8 @@ const readText = (msg) => {
                 let content = msg.content;
                 content = content.replace(/>.+?\n/g, '');
                 let textMsg = author + 'さん。' + content;
+                // 引用の削除
+                textMsg = textMsg.replace(/>*\n/g, '');
                 // 絵文字の置き換え
                 textMsg = textMsg.replace(/<:(.+?):.+?>/g, '$1 ');
                 // URLの省略
