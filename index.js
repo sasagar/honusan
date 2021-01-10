@@ -233,11 +233,15 @@ const readText = (msg) => {
                 }).then( () => {
                     new Promise((resolve) => {
                         if(isConnection ) {
-                            // 繋がっていれば再生
-                            VOICE_CONNECTION.play("sound_" + id + ".mp3");
-                            VOICE_CONNECTION.on("end", () => {
-                                resolve();
-                            });
+                            try{
+                                // 繋がっていれば再生
+                                VOICE_CONNECTION.play("sound_" + id + ".mp3");
+                                VOICE_CONNECTION.on("end", () => {
+                                    resolve();
+                                });
+                             } catch(e) {
+                                console.error(e);
+                             };
                         } else {
                             // 切断されていたら再生せずにスルーしてファイルを消すステップに進ませる
                             resolve();
