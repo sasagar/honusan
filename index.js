@@ -180,6 +180,8 @@ const readText = (msg) => {
                 textMsg = textMsg.replace(/>*\n/g, '');
                 // 絵文字の置き換え
                 textMsg = textMsg.replace(/<:(.+?):.+?>/g, '$1 ');
+                // アニメーション絵文字の置き換え
+                textMsg = textMsg.replace(/<a:(.+?):.+?>/g, '$1 ');
                 // URLの省略
                 textMsg = textMsg.replace(/http(s)?:\/\/([\w-]+\.)+[\w-]+(\/[\w- ./?%&=~]*)?/g, ' URL省略 ');
                 // ディスコード内の飛び先省略
@@ -200,7 +202,7 @@ const readText = (msg) => {
 				textMsg = textMsg.replace(/'/g, '&apos;');
 				textMsg = textMsg.replace(/</g, '&lt;');
 				textMsg = textMsg.replace(/>/g, '&gt;');
-                //console.log(content);
+                // console.log(content);
                 
                 if (wbook[msg.channel.guild.id]) {
                     wbook[msg.channel.guild.id].forEach((exchanger) => {
