@@ -194,6 +194,12 @@ const readText = (msg) => {
                     const mentionName = msg.mentions.find(member => member.id === p1);
                     return mentionName.username;
                 });
+				// エスケープ文字一式対応
+				textMsg = textMsg.replace(/"/g, '&quot;');
+				textMsg = textMsg.replace(/&/g, '&amp;');
+				textMsg = textMsg.replace(/'/g, '&apos;');
+				textMsg = textMsg.replace(/</g, '&lt;');
+				textMsg = textMsg.replace(/>/g, '&gt;');
                 //console.log(content);
                 
                 if (wbook[msg.channel.guild.id]) {
