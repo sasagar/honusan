@@ -21,7 +21,7 @@ let flag = false;
 let msgs = [];
 
 // for non JP
-import Kuroshiro from "kuroshiro";
+const Kuroshiro = require("kuroshiro");
 const kuroshiro = new Kuroshiro();
 
 // describeVoices
