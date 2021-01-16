@@ -28,6 +28,7 @@ const kuroshiro = new Kuroshiro();
 if (process.env.POLLY_LANG != 'ja-JP') {
     kuroshiro.init(analyzer);
 }
+const moji = require("moji");
 
 // describeVoices
 let descParams = {
@@ -35,7 +36,7 @@ let descParams = {
 };
 
 bot.editStatus("online", {
- 'name': 'prefex: ' + process.env.BOT_PREFIX,
+ 'name': 'prefix: ' + process.env.BOT_PREFIX,
  'type': 0
 });
 
@@ -226,7 +227,7 @@ const readText = (msg) => {
 
                 if (process.env.POLLY_LANG != 'ja-JP') {
                     textMsg = await kuroshiro.convert(
-                        textMsg,
+                        moji(textMsg).convert('HK', 'ZK').toString(),
                         {
                             to: "romaji",
                             mode: "spaced",
