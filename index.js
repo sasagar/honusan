@@ -21,8 +21,13 @@ let flag = false;
 let msgs = [];
 
 // for non JP
+const KuromojiAnalyzer = require("kuroshiro-analyzer-kuromoji");
+const analyzer = new KuromojiAnalyzer();
 const Kuroshiro = require("kuroshiro");
 const kuroshiro = new Kuroshiro();
+if (process.env.POLLY_LANG != 'ja-JP') {
+    kuroshiro.init(analyzer);
+}
 
 // describeVoices
 let descParams = {

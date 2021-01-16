@@ -14,7 +14,8 @@
     "eris": "^0.13.3",
     "eslint": "^7.9.0",
     "fs": "0.0.1-security",
-    "kuroshiro": "^1.1.2"
+    "kuroshiro": "^1.1.2",
+    "kuroshiro-analyzer-kuromoji": "^1.1.0"
   },
   "devDependencies": {
     "eslint-config-prettier": "^6.11.0",
