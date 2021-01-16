@@ -1,28 +1,32 @@
 const Eris = require("eris");
 const aws = require("aws-sdk");
 const fs = require("fs");
+const {Readable} = require("stream");
+
+require("dotenv").config();
  
-const bot = new Eris("NzU3NTIxNDkyMDg1OTY0ODMw.X2hm3Q.NehUCdbvirSL1dpJj4CdZqoEWU8");
+const bot = new Eris(process.env.BOT_SECRET);
 
 aws.config.loadFromPath('credentials.json');
 let polly = new aws.Polly({region:'us-west-2'});
 let wbook = require('./wbook.json');
+// const { VoiceConnection } = require("eris");
 
 let isConnection = null;
 let VOICE_CONNECTION = null;
 let TtoV_CHANNEL = "";
 
-const prefix = "&";
+const prefix = process.env.BOT_PREFIX;
 let flag = false;
 let msgs = [];
 
 // describeVoices
 let descParams = {
-    LanguageCode: 'ja-JP'
+    LanguageCode: process.env.POLLY_LANG
 };
 
 bot.editStatus("online", {
- 'name': 'prefex: &',
+ 'name': 'prefex: ' + process.env.BOT_PREFIX,
  'type': 0
 });
 
@@ -116,7 +120,7 @@ bot.on("messageCreate", (msg) => {
         // console.log(msg.channel.guild.id);
     } else if (msg.channel.id == TtoV_CHANNEL) {
         // 終了コマンド end
-        if(msg.content == prefix + "end" || msg.content == prefix + "bye") {
+        if(msg.content == prefix + "end" || msg.content == prefix + "bye" || msg.content == prefix + "dc") {
             if(isConnection) {
                 VOICE_CONNECTION.disconnect();
                 VOICE_CONNECTION = null;
@@ -149,7 +153,6 @@ if (isConnection) {
 }
 
 const readText = (msg) => {
-    // console.log(msg);
 
     return new Promise((res, rej) => {
         logStep("readText Start");
@@ -160,7 +163,7 @@ const readText = (msg) => {
                     return rej(err);
                 }
                 // console.log(JSON.stringify(data));
-                let voiceId = data.Voices[0].Id;
+                let voiceId = data.Voices[process.env.POLLY_VOICE].Id;
                 logStep("readText Try");
 
                 // テキストを作る
@@ -171,8 +174,6 @@ const readText = (msg) => {
                     author = msg.member.nick;
                 }
 
-                // fs.writeFile('log.txt',JSON.stringify(msg.channel.guild.channels.find((cnl) => {return cnl.id === "746690794714300417"})),(err) => {return err;});
-                
                 let content = msg.content;
                 content = content.replace(/>.+?\n/g, '');
                 let textMsg = author + 'さん。' + content;
@@ -209,57 +210,40 @@ const readText = (msg) => {
                         textMsg = textMsg.replace(new RegExp(exchanger.before, 'ig'), exchanger.after);
                     });
                 }
-                // console.log(content);
-                let id = msg.id;
-                
-                // console.log(author);
 
                 // synthesizeSpeech
                 let speechParams = {
-                    OutputFormat: 'mp3',
+                    OutputFormat: 'ogg_vorbis',
                     VoiceId: voiceId,
                     Text: '<prosody rate="fast">' + textMsg + '</prosody>',
                     SampleRate: '22050',
                     TextType: 'ssml'
                 };
 
-                polly.synthesizeSpeech(speechParams).promise().then(data => {
-                    fs.writeFile("sound_" + id + ".mp3", data.AudioStream, (err) => {
-                        if (err) {
-                            console.log(err);
-                            rej(err);
-                        } else {
-                            //console.log('Success');
-                        }
-                    });
-                }).then( () => {
-                    new Promise((resolve) => {
-                        if(isConnection ) {
-                            try{
-                                // 繋がっていれば再生
-                                VOICE_CONNECTION.play("sound_" + id + ".mp3");
-                                VOICE_CONNECTION.on("end", () => {
-                                    resolve();
-                                });
-                             } catch(e) {
-                                console.error(e);
-                             };
-                        } else {
-                            // 切断されていたら再生せずにスルーしてファイルを消すステップに進ませる
-                            resolve();
-                        }
-                    }).then( () => {
-                        fs.unlinkSync("sound_" + id + ".mp3");
-                        res();
-                    })
-                })
-                .catch(err => {
-                    console.log(err);
-                    rej(err);
+                polly.synthesizeSpeech(speechParams, (err, data) => {
+                    if (err) {
+                        console.log(err);
+                        bot.createMessage(TtoV_CHANNEL, "エラー(226)が起きています" + "```" + err + "```");
+                        rej(err);
+                    } else {
+                        // readable streamを準備
+                        const rs = new Readable({
+                            read() {}
+                        });
+
+                        //
+                        VOICE_CONNECTION.play(rs);
+                        VOICE_CONNECTION.on("end", () => {
+                            res();
+                        });
+
+                        rs.push(data.AudioStream);
+                        rs.push(null);
+                    }
                 });
             });                
         } catch(e) {
-            bot.createMessage(TtoV_CHANNEL, "エラーが起きています" + "```" + e + "```");
+            bot.createMessage(TtoV_CHANNEL, "エラー(246)が起きています" + "```" + e + "```");
             rej(e);
         }
     });

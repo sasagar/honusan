@@ -108,3 +108,5 @@ aws_credentials.csv
 credentials.json
 wbook.json
 sound*.mp3
+
+workspace.code-workspace
