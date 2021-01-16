@@ -250,6 +250,7 @@ const readText = (msg) => {
                     if (err) {
                         console.log(err);
                         bot.createMessage(TtoV_CHANNEL, "エラー(226)が起きています" + "```" + err + "```");
+                        polly = new aws.Polly({region:'us-west-2'});
                         rej(err);
                     } else {
                         // readable streamを準備
