@@ -13,7 +13,8 @@
     "dotenv": "^8.2.0",
     "eris": "^0.13.3",
     "eslint": "^7.9.0",
-    "fs": "0.0.1-security"
+    "fs": "0.0.1-security",
+    "kuroshiro": "^1.1.2"
   },
   "devDependencies": {
     "eslint-config-prettier": "^6.11.0",

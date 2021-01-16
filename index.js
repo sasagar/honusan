@@ -20,6 +20,10 @@ const prefix = process.env.BOT_PREFIX;
 let flag = false;
 let msgs = [];
 
+// for non JP
+import Kuroshiro from "kuroshiro";
+const kuroshiro = new Kuroshiro();
+
 // describeVoices
 let descParams = {
     LanguageCode: process.env.POLLY_LANG
@@ -157,7 +161,7 @@ const readText = (msg) => {
     return new Promise((res, rej) => {
         logStep("readText Start");
         try{
-            polly.describeVoices(descParams, (err, data) => {
+            polly.describeVoices(descParams, async (err, data) => {
 
                 if (err) {
                     return rej(err);
@@ -203,12 +207,27 @@ const readText = (msg) => {
 				textMsg = textMsg.replace(/'/g, '&apos;');
 				textMsg = textMsg.replace(/</g, '&lt;');
 				textMsg = textMsg.replace(/>/g, '&gt;');
+
+                // アンダースコアをスペースに
+                textMsg = textMsg.replace(/_/g, ' ');
+
                 // console.log(content);
                 
                 if (wbook[msg.channel.guild.id]) {
                     wbook[msg.channel.guild.id].forEach((exchanger) => {
                         textMsg = textMsg.replace(new RegExp(exchanger.before, 'ig'), exchanger.after);
                     });
+                }
+
+                if (process.env.POLLY_LANG != 'ja-JP') {
+                    textMsg = await kuroshiro.convert(
+                        textMsg,
+                        {
+                            to: "romaji",
+                            mode: "spaced",
+                            romajiSystem: "passport"
+                        }
+                    );
                 }
 
                 // synthesizeSpeech
