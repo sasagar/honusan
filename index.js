@@ -207,7 +207,19 @@ const readText = (msg) => {
                     const mentionName = msg.mentions.find(member => member.id === p1);
                     return mentionName.username;
                 });
-				// エスケープ文字一式対応
+
+                if (process.env.POLLY_LANG != 'ja-JP') {
+                    textMsg = await kuroshiro.convert(
+                        moji(textMsg).convert('HK', 'ZK').toString(),
+                        {
+                            to: "romaji",
+                            mode: "spaced",
+                            romajiSystem: "passport"
+                        }
+                    );
+                }
+
+                // エスケープ文字一式対応
 				textMsg = textMsg.replace(/"/g, '&quot;');
 				textMsg = textMsg.replace(/&/g, '&amp;');
 				textMsg = textMsg.replace(/'/g, '&apos;');
@@ -223,17 +235,6 @@ const readText = (msg) => {
                     wbook[msg.channel.guild.id].forEach((exchanger) => {
                         textMsg = textMsg.replace(new RegExp(exchanger.before, 'ig'), exchanger.after);
                     });
-                }
-
-                if (process.env.POLLY_LANG != 'ja-JP') {
-                    textMsg = await kuroshiro.convert(
-                        moji(textMsg).convert('HK', 'ZK').toString(),
-                        {
-                            to: "romaji",
-                            mode: "spaced",
-                            romajiSystem: "passport"
-                        }
-                    );
                 }
 
                 // synthesizeSpeech
