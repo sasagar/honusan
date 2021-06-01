@@ -1,24 +1,27 @@
+const { SlashCreator, GatewayServer, SlashCommand, CommandOptionType, Command } = require('slash-create');
 const Eris = require("eris");
 const aws = require("aws-sdk");
 const fs = require("fs");
-const {Readable} = require("stream");
+const path = require("path");
+const { Readable } = require("stream");
 
 require("dotenv").config();
- 
-const bot = new Eris(process.env.BOT_SECRET);
+
+const bot = new Eris(process.env.BOT_SECRET, {restMode: true});
 
 aws.config.loadFromPath('credentials.json');
 let polly = new aws.Polly({region:'us-west-2'});
 let wbook = require('./wbook.json');
-// const { VoiceConnection } = require("eris");
 
-let isConnection = null;
 let VOICE_CONNECTION = null;
 let TtoV_CHANNEL = "";
 
 const prefix = process.env.BOT_PREFIX;
 let flag = false;
 let msgs = [];
+
+const cmdkey = process.env.COMMAND;
+const cmdname = process.env.NAME;
 
 // for non JP
 const KuromojiAnalyzer = require("kuroshiro-analyzer-kuromoji");
@@ -36,8 +39,8 @@ let descParams = {
 };
 
 bot.editStatus("online", {
- 'name': 'prefix: ' + process.env.BOT_PREFIX,
- 'type': 0
+    'name': 'slash ' + cmdkey,
+    'type': 0
 });
 
 bot.on("ready", () => {
@@ -47,116 +50,24 @@ bot.on("ready", () => {
 bot.on("messageCreate", (msg) => {
     if (msg.author.bot) return;
 
-    isConnection = !!VOICE_CONNECTION;
-    if ((msg.content == prefix + "summon" || msg.content == prefix + "s")&& !isConnection) {
-        // console.log(msg.member.voiceState.channelID);
-        const vc = msg.member.voiceState.channelID;
-
-        if(vc) {
-            // メッセージを書いた人のいるボイスチャットに入る
-            TtoV_CHANNEL = msg.channel.id;
-            bot.getChannel(vc).join().then(connection => {
-                VOICE_CONNECTION= connection;
-                bot.createMessage(TtoV_CHANNEL, "VCに接続します。");
-            });
-        } else {
-            bot.createMessage(msg.channel.id, "あなたはまだVCに居ないようです。どこに接続するか判断ができませんでした。");
+        if (msg.channel.id == TtoV_CHANNEL) {
+        // メッセージを配列に入れる
+        msgs.push(msg);
+        // フラグがfalseなら
+        if (! flag) {
+            // フラグをtrueにする
+            flag = true;
+            // メッセージを繰り返し読む関数を実行する
+            readAllMessages();
+            // readText(msg);
         }
-    } else if (msg.content.startsWith( prefix + "wbook" )) {
-        // 単語登録
-        // guiid.idを取得
-        let guildId = msg.channel.guild.id;
-        // コマンドを分割
-        let com = msg.content.split(' ');
-        let before, after;
-        let addword;
-
-        // コマンドによって処理を分ける
-        switch (com[1]) {
-            case 'add':
-                before = com[2];
-                after = com[3];
-
-                addword = {
-                    "before": before,
-                    "after": after
-                };
-
-                if (wbook[guildId]) {
-                    let i = 0;
-                    let wordsetFlag = true;
-                    wbook[guildId].forEach((wordset) => {
-                        if (wordset.before == before) {
-                            wbook[guildId][i]['after'] = after; 
-                            wordsetFlag = false;
-                        }
-                        i = i + 1;
-                    });
-                    if (wordsetFlag) {
-                        wbook[guildId].push(addword);
-                    }
-                } else {
-                    wbook[guildId] = [addword];
-                }
-                fs.writeFileSync('wbook.json', JSON.stringify(wbook));
-                bot.createMessage(msg.channel.id, '辞書登録: ' + com[2] + ' → ' + com[3]);
-                break;
-            case 'remove':
-            case 'delete':
-                // eslint-disable-next-line no-case-declarations
-                let worddelFlag = false;
-                before = com[2];
-                if (wbook[guildId]) {
-                    let i = 0;
-                    wbook[guildId].forEach((wordset) => {
-                        if (wordset.before == before) {
-                            wbook[guildId].splice(i, 1);
-                            worddelFlag = true;
-                        }
-                        i = i + 1;
-                    });
-                }
-                fs.writeFileSync('wbook.json', JSON.stringify(wbook));
-                if (worddelFlag) {
-                    bot.createMessage(msg.channel.id, '辞書登録解除: ' + com[2]);
-                } else {
-                    bot.createMessage(msg.channel.id, '辞書登録解除する単語がありませんでした。');
-                }
-                // console.log(wbook);
-                break;
-            default:
-                bot.createMessage(msg.channel.id, 'コマンドが間違っているようです。 `' + prefix + 'wbook add <変換前> <変換後>` の形式か、`' + prefix + 'wbook remove <変換を止めたい単語>`の形式でコマンドを打ち込んでください。')
-        }
-        // console.log(msg.channel.guild.id);
-    } else if (msg.channel.id == TtoV_CHANNEL) {
-        // 終了コマンド end
-        if(msg.content == prefix + "end" || msg.content == prefix + "bye" || msg.content == prefix + "dc") {
-            if(isConnection) {
-                VOICE_CONNECTION.disconnect();
-                VOICE_CONNECTION = null;
-                bot.createMessage(TtoV_CHANNEL, "接続解除しました。");
-                return;
-            }
-        } else {
-            // メッセージを配列に入れる
-            msgs.push(msg);
-            // フラグがfalseなら
-            if (! flag) {
-                // フラグをtrueにする
-                flag = true;
-                // メッセージを繰り返し読む関数を実行する
-                readAllMessages();
-                // readText(msg);
-            }
-            // フラグがtrueなら何もしない
-        }
-
+        // フラグがtrueなら何もしない
     }
 });
 
 bot.connect();
 
-if (isConnection) {
+if (VOICE_CONNECTION) {
 	VOICE_CONNECTION.on("userDisconnect", (userID)=>{
 		console.log(userID);
 	});
@@ -299,3 +210,149 @@ const readAllMessages = async () => {
 const logStep = (message) => {
     // console.log('--- ' + message + ' ---');
 }
+
+
+const join = class CONNECTION_CTRL extends SlashCommand {
+    constructor(creator) {
+        super(creator, {
+            name: cmdkey,
+            description: cmdname + 'の接続・接続解除',
+        });
+    }
+
+    async run(ctx) {
+        const member = await bot.getRESTGuildMember(ctx.guildID, ctx.user.id);
+        const voiceChannelID = member.voiceState.channelID;
+        const textChannelID = ctx.channelID;
+
+        if (!VOICE_CONNECTION) {
+            console.log("VC:" + voiceChannelID);
+            console.log("TX:" + textChannelID)
+            const vc = voiceChannelID;
+
+            if (vc) {
+                // メッセージを書いた人のいるボイスチャットに入る
+                TtoV_CHANNEL = textChannelID;
+                bot.getChannel(vc).join().then(connection => {
+                    VOICE_CONNECTION = connection;
+                });
+                return "VCに接続します。";
+            } else {
+                return "あなたはまだVCに居ないようです。どこに接続するか判断ができませんでした。";
+            }
+        } else {
+            VOICE_CONNECTION.disconnect();
+            VOICE_CONNECTION = null;
+            return "接続解除しました。"
+        };
+    }
+}
+
+const dicadd = class DICT_ADD extends SlashCommand {
+    constructor(creator) {
+        super(creator, {
+            name: cmdkey + '-add',
+            description: cmdname + 'に辞書登録します',
+            options: [{
+                type: CommandOptionType.STRING,
+                name: 'addword',
+                description: '登録したい単語',
+                required: true,
+            }, {
+                type: CommandOptionType.STRING,
+                name: 'readas',
+                description: '読み上げたい読み方',
+                required: true,
+            }]
+        });
+    }
+
+    run(ctx) {
+        const guildId = ctx.guildID;
+        const before = ctx.options.addword;
+        const after = ctx.options.readas;
+
+        const word = {
+            before,
+            after
+        };
+
+        if (wbook[guildId]) {
+            let i = 0;
+            let wordsetFlag = true;
+            wbook[guildId].forEach((wordset) => {
+                if (wordset.before == before) {
+                    wbook[guildId][i]['after'] = after;
+                    wordsetFlag = false;
+                }
+                i = i + 1;
+            });
+            if (wordsetFlag) {
+                wbook[guildId].push(word);
+            }
+        } else {
+            wbook[guildId] = [word];
+        }
+        fs.writeFileSync('wbook.json', JSON.stringify(wbook));
+        return '辞書登録しました。 ：' + before + ' → ' + after;
+    }
+}
+
+const dicrm = class DICT_REMOVE extends SlashCommand {
+    constructor(creator) {
+        super(creator, {
+            name: cmdkey + '-rm',
+            description: cmdname + 'の辞書から、単語登録を削除します',
+            options: [{
+                type: CommandOptionType.STRING,
+                name: 'rmword',
+                description: '削除したい単語',
+                required: true,
+            }]
+        });
+    }
+
+    run(ctx) {
+        const guildId = ctx.guildID;
+        const before = ctx.options.rmword;
+        let worddelFlag = false;
+
+        if (wbook[guildId]) {
+            let i = 0;
+            wbook[guildId].forEach((wordset) => {
+                if (wordset.before == before) {
+                    wbook[guildId].splice(i, 1);
+                    worddelFlag = true;
+                }
+                i = i + 1;
+            });
+        }
+        fs.writeFileSync('wbook.json', JSON.stringify(wbook));
+        if (worddelFlag) {
+            return '辞書登録解除: ' + before;
+        } else {
+            return '辞書に「' + before + '」という単語がありませんでした。';
+        }
+    }
+}
+
+/* Slash Command Init */
+const creator = new SlashCreator({
+    applicationID: process.env.APPLICATION_ID,
+    publicKey: process.env.PUBLIC_KEY,
+    token: process.env.BOT_SECRET,
+});
+
+const commands = [join, dicadd, dicrm];
+
+creator
+    .withServer(
+        new GatewayServer(
+            (handler) => bot.on('rawWS', (event) => {
+                if (event.t === 'INTERACTION_CREATE') handler(event.d);
+            })
+        )
+    )
+    .registerCommands(commands)
+    .syncCommands();
+
