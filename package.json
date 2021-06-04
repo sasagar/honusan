@@ -16,6 +16,7 @@
     "fs": "0.0.1-security",
     "kuroshiro": "^1.1.2",
     "kuroshiro-analyzer-kuromoji": "^1.1.0",
+    "log4js": "^6.3.0",
     "moji": "^0.5.1",
     "slash-create": "^3.2.3"
   },

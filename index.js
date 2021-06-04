@@ -7,6 +7,44 @@ const { Readable } = require("stream");
 
 require("dotenv").config();
 
+const log4js = require("log4js");
+
+log4js.configure({
+    appenders: {
+        stdout: {
+            type: 'stdout'
+        },
+        system: {
+            type: 'dateFile',
+            filename: './logs/system.log',
+            pattern: '-yyyy-MM-dd',
+            keepFileExt: true,
+            compress: true,
+            daysToKeep: 5
+        },
+        systemError: {
+            type: 'dateFile',
+            filename: './logs/error.log',
+            pattern: '-yyyy-MM-dd',
+            keepFileExt: true,
+            compress: true,
+            daysToKeep: 5,
+        }
+    },
+    categories: {
+        default: {
+            appenders: ['system'],
+            level: 'info'
+        },
+        errors: {
+            appenders: ['systemError'],
+            level: 'error'
+        }
+    }
+})
+
+const logger = log4js.getLogger('default');
+
 const bot = new Eris(process.env.BOT_SECRET, {restMode: true});
 
 aws.config.loadFromPath('credentials.json');
@@ -39,29 +77,33 @@ let descParams = {
 };
 
 bot.editStatus("online", {
-    'name': 'slash ' + cmdkey,
+    'name': '/' + cmdkey,
     'type': 0
 });
 
 bot.on("ready", () => {
-    console.log("bot is ready at last.");
+    logger.info("bot is ready at last.");
 })
 
 bot.on("messageCreate", (msg) => {
-    if (msg.author.bot) return;
+    try {
+        if (msg.author.bot) return;
 
         if (msg.channel.id == TtoV_CHANNEL) {
-        // メッセージを配列に入れる
-        msgs.push(msg);
-        // フラグがfalseなら
-        if (! flag) {
-            // フラグをtrueにする
-            flag = true;
-            // メッセージを繰り返し読む関数を実行する
-            readAllMessages();
-            // readText(msg);
+            // メッセージを配列に入れる
+            msgs.push(msg);
+            // フラグがfalseなら
+            if (!flag) {
+                // フラグをtrueにする
+                flag = true;
+                // メッセージを繰り返し読む関数を実行する
+                readAllMessages();
+                // readText(msg);
+            }
+            // フラグがtrueなら何もしない
         }
-        // フラグがtrueなら何もしない
+    } catch (err) {
+        logger.error('Message Create Error: ' + err)
     }
 });
 
@@ -69,14 +111,14 @@ bot.connect();
 
 if (VOICE_CONNECTION) {
 	VOICE_CONNECTION.on("userDisconnect", (userID)=>{
-		console.log(userID);
+		logger.info('VC User Disconnect: ' + userID);
 	});
 }
 
 const readText = (msg) => {
 
     return new Promise((res, rej) => {
-        logStep("readText Start");
+        logger.trace("readText Start");
         try{
             polly.describeVoices(descParams, async (err, data) => {
 
@@ -85,7 +127,7 @@ const readText = (msg) => {
                 }
                 // console.log(JSON.stringify(data));
                 let voiceId = data.Voices[process.env.POLLY_VOICE].Id;
-                logStep("readText Try");
+                logger.trace("readText Try");
 
                 // テキストを作る
                 let author = "";
@@ -159,8 +201,8 @@ const readText = (msg) => {
 
                 polly.synthesizeSpeech(speechParams, (err, data) => {
                     if (err) {
-                        console.log(err);
-                        bot.createMessage(TtoV_CHANNEL, "エラー(226)が起きています" + "```" + err + "```");
+                        logger.error(err);
+                        bot.createMessage(TtoV_CHANNEL, "エラー(197)が起きています" + "```" + err + "```");
                         polly = new aws.Polly({region:'us-west-2'});
                         rej(err);
                     } else {
@@ -180,37 +222,36 @@ const readText = (msg) => {
                     }
                 });
             });                
-        } catch(e) {
-            bot.createMessage(TtoV_CHANNEL, "エラー(246)が起きています" + "```" + e + "```");
-            rej(e);
+        } catch (err) {
+            logger.error(err)
+            bot.createMessage(TtoV_CHANNEL, "エラー(218)が起きています" + "```" + e + "```");
+            rej(err);
         }
     });
 }
 
 const readAllMessages = async () => {
-    logStep("readAllMessages Start");
+    logger.trace("readAllMessages Start");
     while (flag) {
-        logStep("readAllMessages While Start");
-        if (msgs.length > 0) {
-            logStep("readAllMessages Length Checked");
-            await readText(msgs[0])
-            logStep("readAllMessages Array shift");
-            msgs.shift();
-        } else {
-            logStep("readAllMessages Length none");
-            // 長さが0ならフラグをfalseに
-            flag = false;
+        try {
+            logger.trace("readAllMessages While Start");
+            if (msgs.length > 0) {
+                logger.trace("readAllMessages Length Checked");
+                await readText(msgs[0])
+                logger.trace("readAllMessages Array shift");
+                msgs.shift();
+            } else {
+                logger.trace("readAllMessages Length none");
+                // 長さが0ならフラグをfalseに
+                flag = false;
+            }
+            logger.trace("readAllMessages While Ended");
+        } catch (err) {
+            logger.error("readAllMessages Error: " + err)
         }
-        logStep("readAllMessages While Ended");
     }
-    logStep("readAllMessages Ended");
+    logger.trace("readAllMessages Ended");
 }
-
-// eslint-disable-next-line no-unused-vars
-const logStep = (message) => {
-    // console.log('--- ' + message + ' ---');
-}
-
 
 const join = class CONNECTION_CTRL extends SlashCommand {
     constructor(creator) {
@@ -221,30 +262,43 @@ const join = class CONNECTION_CTRL extends SlashCommand {
     }
 
     async run(ctx) {
-        const member = await bot.getRESTGuildMember(ctx.guildID, ctx.user.id);
-        const voiceChannelID = member.voiceState.channelID;
-        const textChannelID = ctx.channelID;
+        try {
+            const member = await bot.getRESTGuildMember(ctx.guildID, ctx.user.id);
+            const voiceChannelID = member.voiceState.channelID;
+            const textChannelID = ctx.channelID;
 
-        if (!VOICE_CONNECTION) {
-            console.log("VC:" + voiceChannelID);
-            console.log("TX:" + textChannelID)
-            const vc = voiceChannelID;
+            const author = member.username;
 
-            if (vc) {
-                // メッセージを書いた人のいるボイスチャットに入る
-                TtoV_CHANNEL = textChannelID;
-                bot.getChannel(vc).join().then(connection => {
-                    VOICE_CONNECTION = connection;
-                });
-                return "VCに接続します。";
+            if (!VOICE_CONNECTION) {
+                logger.info("Connect to VC:" + voiceChannelID);
+                logger.info("Connect to Text:" + textChannelID);
+                logger.info("Connected by " + author);
+
+                const vc = voiceChannelID;
+
+                if (vc) {
+                    // メッセージを書いた人のいるボイスチャットに入る
+                    TtoV_CHANNEL = textChannelID;
+                    bot.getChannel(vc).join().then(connection => {
+                        VOICE_CONNECTION = connection;
+                    });
+                    return "VCに接続します。";
+                } else {
+                    return "あなたはまだVCに居ないようです。どこに接続するか判断ができませんでした。";
+                }
             } else {
-                return "あなたはまだVCに居ないようです。どこに接続するか判断ができませんでした。";
-            }
-        } else {
-            VOICE_CONNECTION.disconnect();
-            VOICE_CONNECTION = null;
-            return "接続解除しました。"
-        };
+                logger.info("Disconnect from VC:" + voiceChannelID);
+                logger.info("Disconnect at Text:" + textChannelID);
+                logger.info("Disconnected by " + author);
+
+                VOICE_CONNECTION.disconnect();
+                VOICE_CONNECTION = null;
+                return "接続解除しました。"
+            };
+        } catch (err) {
+            logger.error(err);
+            return "エラー(288)が起きています" + "```" + e + "```";
+        }
     }
 }
 
@@ -268,33 +322,38 @@ const dicadd = class DICT_ADD extends SlashCommand {
     }
 
     run(ctx) {
-        const guildId = ctx.guildID;
-        const before = ctx.options.addword;
-        const after = ctx.options.readas;
+        try {
+            const guildId = ctx.guildID;
+            const before = ctx.options.addword;
+            const after = ctx.options.readas;
 
-        const word = {
-            before,
-            after
-        };
+            const word = {
+                before,
+                after
+            };
 
-        if (wbook[guildId]) {
-            let i = 0;
-            let wordsetFlag = true;
-            wbook[guildId].forEach((wordset) => {
-                if (wordset.before == before) {
-                    wbook[guildId][i]['after'] = after;
-                    wordsetFlag = false;
+            if (wbook[guildId]) {
+                let i = 0;
+                let wordsetFlag = true;
+                wbook[guildId].forEach((wordset) => {
+                    if (wordset.before == before) {
+                        wbook[guildId][i]['after'] = after;
+                        wordsetFlag = false;
+                    }
+                    i = i + 1;
+                });
+                if (wordsetFlag) {
+                    wbook[guildId].push(word);
                 }
-                i = i + 1;
-            });
-            if (wordsetFlag) {
-                wbook[guildId].push(word);
+            } else {
+                wbook[guildId] = [word];
             }
-        } else {
-            wbook[guildId] = [word];
+            fs.writeFileSync('wbook.json', JSON.stringify(wbook));
+            logger.info('DICT add: ' + before + ' -> ' + after);
+            return '辞書登録しました。 ：' + before + ' → ' + after;
+        } catch (err) {
+            logger.error(err);
         }
-        fs.writeFileSync('wbook.json', JSON.stringify(wbook));
-        return '辞書登録しました。 ：' + before + ' → ' + after;
     }
 }
 
@@ -313,25 +372,31 @@ const dicrm = class DICT_REMOVE extends SlashCommand {
     }
 
     run(ctx) {
-        const guildId = ctx.guildID;
-        const before = ctx.options.rmword;
-        let worddelFlag = false;
+        try {
+            const guildId = ctx.guildID;
+            const before = ctx.options.rmword;
+            let worddelFlag = false;
 
-        if (wbook[guildId]) {
-            let i = 0;
-            wbook[guildId].forEach((wordset) => {
-                if (wordset.before == before) {
-                    wbook[guildId].splice(i, 1);
-                    worddelFlag = true;
-                }
-                i = i + 1;
-            });
-        }
-        fs.writeFileSync('wbook.json', JSON.stringify(wbook));
-        if (worddelFlag) {
-            return '辞書登録解除: ' + before;
-        } else {
-            return '辞書に「' + before + '」という単語がありませんでした。';
+            if (wbook[guildId]) {
+                let i = 0;
+                wbook[guildId].forEach((wordset) => {
+                    if (wordset.before == before) {
+                        wbook[guildId].splice(i, 1);
+                        worddelFlag = true;
+                    }
+                    i = i + 1;
+                });
+            }
+            fs.writeFileSync('wbook.json', JSON.stringify(wbook));
+            if (worddelFlag) {
+                logger.info('DICT rm: ' + before);
+                return '辞書登録解除: ' + before;
+            } else {
+                logger.info('DICT rm fail: ' + before + ' not found.');
+                return '辞書に「' + before + '」という単語がありませんでした。';
+            }
+        } catch (err) {
+            logger.error(err);
         }
     }
 }
