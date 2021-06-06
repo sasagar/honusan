@@ -186,7 +186,9 @@ const readText = (msg) => {
                 
                 if (wbook[msg.channel.guild.id]) {
                     wbook[msg.channel.guild.id].forEach((exchanger) => {
-                        textMsg = textMsg.replace(new RegExp(exchanger.before, 'ig'), exchanger.after);
+                        // 変換前の単語に$が入っていると上手く動作しない点の置換
+                        const reg = exchanger.before.replace(/\$/g, '\\$');
+                        textMsg = textMsg.replace(new RegExp(reg, 'ig'), exchanger.after);
                     });
                 }
 
