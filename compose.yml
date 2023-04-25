@@ -4,6 +4,9 @@ services:
     build: .
     image: honusan
     volumes:
-      - .:/app
+      - ./.env:/app/.env:ro
+      - ./index.js:/app/index.js
+      - ./wbook.json:/app/wbook.json:rw
+      - ./logs/:/app/logs
     command: node /app/index.js
     network_mode: host
