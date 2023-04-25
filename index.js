@@ -1,13 +1,12 @@
-const { SlashCreator, GatewayServer, SlashCommand, CommandOptionType, Command } = require('slash-create');
-const Eris = require("eris");
-const aws = require("aws-sdk");
-const fs = require("fs");
-const path = require("path");
-const { Readable } = require("stream");
+import { SlashCreator, GatewayServer, SlashCommand, CommandOptionType, Command } from 'slash-create';
+import Eris from "eris";
+import { fromEnv } from '@aws-sdk/credential-providers';
+import { PollyClient, DescribeVoicesCommand, SynthesizeSpeechCommand } from "@aws-sdk/client-polly";
+import fs from "fs";
+import dotenv from 'dotenv';
+import log4js from "log4js";
 
-require("dotenv").config();
-
-const log4js = require("log4js");
+dotenv.config();
 
 log4js.configure({
     appenders: {
@@ -20,7 +19,7 @@ log4js.configure({
             pattern: '-yyyy-MM-dd',
             keepFileExt: true,
             compress: true,
-            daysToKeep: 5
+            numBackups: 5
         },
         systemError: {
             type: 'dateFile',
@@ -28,7 +27,7 @@ log4js.configure({
             pattern: '-yyyy-MM-dd',
             keepFileExt: true,
             compress: true,
-            daysToKeep: 5,
+            numBackups: 5,
         }
     },
     categories: {
@@ -45,16 +44,16 @@ log4js.configure({
 
 const logger = log4js.getLogger('default');
 
-const bot = new Eris(process.env.BOT_SECRET, {restMode: true});
+const bot = new Eris(process.env.BOT_SECRET, { restMode: true });
 
-aws.config.loadFromPath('credentials.json');
-let polly = new aws.Polly({region:'us-west-2'});
-let wbook = require('./wbook.json');
+const region = process.env.AWS_REGION;
+
+let client = new PollyClient({ region, credentials: fromEnv() });
+let wbook = JSON.parse(fs.readFileSync('./wbook.json', 'utf8'));
 
 let VOICE_CONNECTION = null;
 let TtoV_CHANNEL = "";
 
-const prefix = process.env.BOT_PREFIX;
 let flag = false;
 let msgs = [];
 
@@ -62,14 +61,15 @@ const cmdkey = process.env.COMMAND;
 const cmdname = process.env.NAME;
 
 // for non JP
-const KuromojiAnalyzer = require("kuroshiro-analyzer-kuromoji");
-const analyzer = new KuromojiAnalyzer();
-const Kuroshiro = require("kuroshiro");
+import Kuroshiro from "kuroshiro";
+import KuromojiAnalyzer from "kuroshiro-analyzer-kuromoji";
+import moji from "moji";
 const kuroshiro = new Kuroshiro();
+const analyzer = new KuromojiAnalyzer();
+
 if (process.env.POLLY_LANG != 'ja-JP') {
     kuroshiro.init(analyzer);
 }
-const moji = require("moji");
 
 // describeVoices
 let descParams = {
@@ -110,126 +110,111 @@ bot.on("messageCreate", (msg) => {
 bot.connect();
 
 if (VOICE_CONNECTION) {
-	VOICE_CONNECTION.on("userDisconnect", (userID)=>{
-		logger.info('VC User Disconnect: ' + userID);
-	});
+    VOICE_CONNECTION.on("userDisconnect", (userID) => {
+        logger.info('VC User Disconnect: ' + userID);
+    });
 }
 
-const readText = (msg) => {
+const readText = async (msg) => {
+    logger.trace("readText Start");
+    try {
+        // Get VoiceID
+        const dvcCommand = new DescribeVoicesCommand(descParams);
+        const dvcResponse = await client.send(dvcCommand);
 
-    return new Promise((res, rej) => {
-        logger.trace("readText Start");
-        try{
-            polly.describeVoices(descParams, async (err, data) => {
-
-                if (err) {
-                    return rej(err);
-                }
-                // console.log(JSON.stringify(data));
-                let voiceId = data.Voices[process.env.POLLY_VOICE].Id;
-                logger.trace("readText Try");
-
-                // テキストを作る
-                let author = "";
-                if (msg.member.nick == null) {
-                    author = msg.author.username;
-                } else {
-                    author = msg.member.nick;
-                }
-
-                let content = msg.content;
-                content = content.replace(/>.+?\n/g, '');
-                let textMsg = author + 'さん。' + content;
-                // 引用の削除
-                textMsg = textMsg.replace(/>*\n/g, '');
-                // 絵文字の置き換え
-                textMsg = textMsg.replace(/<:(.+?):.+?>/g, '$1 ');
-                // アニメーション絵文字の置き換え
-                textMsg = textMsg.replace(/<a:(.+?):.+?>/g, '$1 ');
-                // URLの省略
-                textMsg = textMsg.replace(/http(s)?:\/\/([\w-]+\.)+[\w-]+(\/[\w- ./?%&=~]*)?/g, ' URL省略 ');
-                // ディスコード内の飛び先省略
-                textMsg = textMsg.replace(/<#([0-9]+?)>/g, (match, p1) => {
-                    const mentionChannel = msg.channel.guild.channels.find((cnl) => {
-                        return cnl.id == p1;
-                    });
-                    return mentionChannel.name + 'チャンネル';
-                });
-                // メンションの置き換え
-                textMsg = textMsg.replace(/<@!([0-9]+?)>/g, (match, p1) => {
-                    const mentionName = msg.mentions.find(member => member.id === p1);
-                    return mentionName.username;
-                });
-
-                if (process.env.POLLY_LANG != 'ja-JP') {
-                    textMsg = await kuroshiro.convert(
-                        moji(textMsg).convert('HK', 'ZK').toString(),
-                        {
-                            to: "romaji",
-                            mode: "spaced",
-                            romajiSystem: "passport"
-                        }
-                    );
-                }
-
-                // エスケープ文字一式対応
-				textMsg = textMsg.replace(/"/g, '&quot;');
-				textMsg = textMsg.replace(/&/g, '&amp;');
-				textMsg = textMsg.replace(/'/g, '&apos;');
-				textMsg = textMsg.replace(/</g, '&lt;');
-				textMsg = textMsg.replace(/>/g, '&gt;');
-
-                // アンダースコアをスペースに
-                textMsg = textMsg.replace(/_/g, ' ');
-
-                // console.log(content);
-                
-                if (wbook[msg.channel.guild.id]) {
-                    wbook[msg.channel.guild.id].forEach((exchanger) => {
-                        // 変換前の単語に$が入っていると上手く動作しない点の置換
-                        const reg = exchanger.before.replace(/\$/g, '\\$');
-                        textMsg = textMsg.replace(new RegExp(reg, 'ig'), exchanger.after);
-                    });
-                }
-
-                // synthesizeSpeech
-                let speechParams = {
-                    OutputFormat: 'ogg_vorbis',
-                    VoiceId: voiceId,
-                    Text: '<prosody rate="fast">' + textMsg + '</prosody>',
-                    SampleRate: '22050',
-                    TextType: 'ssml'
-                };
-
-                polly.synthesizeSpeech(speechParams, (err, data) => {
-                    if (err) {
-                        logger.error(err);
-                        bot.createMessage(TtoV_CHANNEL, "エラー(197)が起きています" + "```" + err + "```");
-                        polly = new aws.Polly({region:'us-west-2'});
-                        rej(err);
-                    } else {
-                        // readable streamを準備
-                        const rs = new Readable({
-                            read() {}
-                        });
-
-                        //
-                        VOICE_CONNECTION.play(rs);
-                        VOICE_CONNECTION.on("end", () => {
-                            res();
-                        });
-
-                        rs.push(data.AudioStream);
-                        rs.push(null);
-                    }
-                });
-            });                
-        } catch (err) {
-            logger.error(err)
-            bot.createMessage(TtoV_CHANNEL, "エラー(218)が起きています" + "```" + e + "```");
-            rej(err);
+        // .envのvoiceIdが数字かどうかで処理を分ける
+        let voiceId = process.env.POLLY_VOICE;
+        if (!isNaN(process.env.POLLY_VOICE)) {
+            voiceId = dvcResponse.Voices[process.env.POLLY_VOICE].Id;
         }
-    });
+        logger.trace("readText Try");
+
+        // Make text to read
+        let author = '';
+        if (msg.member.nick == null) {
+            author = msg.author.username;
+        } else {
+            author = msg.member.nick;
+        }
+
+        let content = msg.content;
+        content = content.replace(/>.+?\n/g, '');
+        let textMsg = author + 'さん。' + content;
+        // 引用の削除
+        textMsg = textMsg.replace(/>*\n/g, '');
+        // 絵文字の置き換え
+        textMsg = textMsg.replace(/<:(.+?):.+?>/g, '$1 ');
+        // アニメーション絵文字の置き換え
+        textMsg = textMsg.replace(/<a:(.+?):.+?>/g, '$1 ');
+        // URLの省略
+        textMsg = textMsg.replace(/http(s)?:\/\/([\w-]+\.)+[\w-]+(\/[\w- ./?%&=~]*)?/g, ' URL省略 ');
+        // ディスコード内の飛び先省略
+        textMsg = textMsg.replace(/<#([0-9]+?)>/g, (match, p1) => {
+            const mentionChannel = msg.channel.guild.channels.find((cnl) => {
+                return cnl.id == p1;
+            });
+            return mentionChannel.name + 'チャンネル';
+        });
+        // メンションの置き換え
+        textMsg = textMsg.replace(/<@!([0-9]+?)>/g, (match, p1) => {
+            const mentionName = msg.mentions.find(member => member.id === p1);
+            return mentionName.username;
+        });
+
+        if (process.env.POLLY_LANG != 'ja-JP') {
+            textMsg = await kuroshiro.convert(
+                moji(textMsg).convert('HK', 'ZK').toString(),
+                {
+                    to: "romaji",
+                    mode: "spaced",
+                    romajiSystem: "passport"
+                }
+            );
+        }
+
+        // エスケープ文字一式対応
+        textMsg = textMsg.replace(/"/g, '&quot;');
+        textMsg = textMsg.replace(/&/g, '&amp;');
+        textMsg = textMsg.replace(/'/g, '&apos;');
+        textMsg = textMsg.replace(/</g, '&lt;');
+        textMsg = textMsg.replace(/>/g, '&gt;');
+
+        // アンダースコアをスペースに
+        textMsg = textMsg.replace(/_/g, ' ');
+
+        if (wbook[msg.channel.guild.id]) {
+            wbook[msg.channel.guild.id].forEach((exchanger) => {
+                // 変換前の単語に$が入っていると上手く動作しない点の置換
+                const reg = exchanger.before.replace(/\$/g, '\\$');
+                textMsg = textMsg.replace(new RegExp(reg, 'ig'), exchanger.after);
+            });
+        }
+
+        // synthesizeSpeech
+        let speechParams = {
+            Engine: process.env.POLLY_TYPE,
+            OutputFormat: 'ogg_vorbis',
+            VoiceId: voiceId,
+            Text: '<prosody rate="fast">' + textMsg + '</prosody>',
+            TextType: 'ssml'
+        };
+
+        const sscCommand = new SynthesizeSpeechCommand(speechParams);
+        const sscResponse = await client.send(sscCommand);
+
+        // Send voice to VC.
+        let stream = sscResponse.AudioStream;
+        VOICE_CONNECTION.play(stream);
+
+    }
+    catch (err) {
+        logger.error(err)
+        bot.createMessage(TtoV_CHANNEL, "エラー(218)が起きています" + "```" + e + "```");
+        rej(err);
+
+    }
+
+
 }
 
 const readAllMessages = async () => {

@@ -1,28 +1,30 @@
 {
   "name": "doscord-polly-bot",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Discord tts bot with Amazon Polly",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "type": "module",
   "author": "SASAPIYO",
   "license": "GPL-3.0",
   "dependencies": {
-    "aws-sdk": "^2.759.0",
-    "dotenv": "^8.2.0",
-    "eris": "^0.13.3",
-    "eslint": "^7.9.0",
+    "@aws-sdk/client-polly": "^3.316.0",
+    "@aws-sdk/credential-providers": "^3.316.0",
+    "dotenv": "^16.0.3",
+    "eris": "^0.17.2",
+    "eslint": "^8.39.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-prettier": "^4.2.1",
     "fs": "0.0.1-security",
-    "kuroshiro": "^1.1.2",
+    "kuroshiro": "~1.1.2",
     "kuroshiro-analyzer-kuromoji": "^1.1.0",
-    "log4js": "^6.3.0",
+    "log4js": "^6.9.1",
     "moji": "^0.5.1",
-    "slash-create": "^3.2.3"
+    "slash-create": "^5.11.0"
   },
   "devDependencies": {
-    "eslint-config-prettier": "^6.11.0",
-    "eslint-plugin-prettier": "^3.1.4",
     "prettier": "^2.1.2"
   }
 }
