@@ -1,4 +1,4 @@
-import { SlashCreator, GatewayServer, SlashCommand, CommandOptionType, Command } from 'slash-create';
+import { SlashCreator, GatewayServer, SlashCommand, CommandOptionType } from 'slash-create';
 import Eris from "eris";
 import { fromEnv } from '@aws-sdk/credential-providers';
 import { PollyClient, DescribeVoicesCommand, SynthesizeSpeechCommand } from "@aws-sdk/client-polly";
@@ -7,6 +7,8 @@ import dotenv from 'dotenv';
 import log4js from "log4js";
 
 dotenv.config();
+
+process.title = `Honusan (${process.env.NAME})`;
 
 log4js.configure({
     appenders: {
@@ -209,9 +211,7 @@ const readText = async (msg) => {
     }
     catch (err) {
         logger.error(err)
-        bot.createMessage(TtoV_CHANNEL, "エラー(218)が起きています" + "```" + e + "```");
-        rej(err);
-
+        bot.createMessage(TtoV_CHANNEL, "エラー(214)が起きています" + "```" + err + "```");
     }
 
 
@@ -281,10 +281,10 @@ const join = class CONNECTION_CTRL extends SlashCommand {
                 VOICE_CONNECTION.disconnect();
                 VOICE_CONNECTION = null;
                 return "接続解除しました。"
-            };
+            }
         } catch (err) {
             logger.error(err);
-            return "エラー(288)が起きています" + "```" + e + "```";
+            return "エラー(287)が起きています" + "```" + err + "```";
         }
     }
 }
