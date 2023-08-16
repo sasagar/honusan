@@ -1,10 +1,12 @@
 services:
   main:
     restart: always
-    build: .
+    # build: .
     image: honusan
+    env_file:
+      - .env
     volumes:
-      - ./.env:/app/.env:ro
+      # - ./.env:/app/.env:ro
       - ./index.js:/app/index.js
       - ./wbook.json:/app/wbook.json:rw
       - ./logs/:/app/logs
