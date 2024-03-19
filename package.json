@@ -1,6 +1,6 @@
 {
   "name": "doscord-polly-bot",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Discord tts bot with Amazon Polly",
   "main": "index.js",
   "scripts": {
@@ -22,7 +22,7 @@
     "kuroshiro-analyzer-kuromoji": "^1.1.0",
     "log4js": "^6.9.1",
     "moji": "^0.5.1",
-    "slash-create": "^5.11.0"
+    "slash-create": "^6.0.2"
   },
   "devDependencies": {
     "prettier": "^2.1.2"

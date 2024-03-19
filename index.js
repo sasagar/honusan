@@ -2,7 +2,7 @@ import { SlashCreator, GatewayServer, SlashCommand, CommandOptionType } from 'sl
 import Eris from "eris";
 import { fromEnv } from '@aws-sdk/credential-providers';
 import { PollyClient, DescribeVoicesCommand, SynthesizeSpeechCommand } from "@aws-sdk/client-polly";
-import fs from "fs";
+import fs from "node:fs";
 import dotenv from 'dotenv';
 import log4js from "log4js";
 
@@ -50,14 +50,14 @@ const bot = new Eris(process.env.BOT_SECRET, { restMode: true });
 
 const region = process.env.AWS_REGION;
 
-let client = new PollyClient({ region, credentials: fromEnv() });
-let wbook = JSON.parse(fs.readFileSync('./wbook.json', 'utf8'));
+const client = new PollyClient({ region, credentials: fromEnv() });
+const wbook = JSON.parse(fs.readFileSync('./wbook.json', 'utf8'));
 
 let VOICE_CONNECTION = null;
 let TtoV_CHANNEL = "";
 
 let flag = false;
-let msgs = [];
+const msgs = [];
 
 const cmdkey = process.env.COMMAND;
 const cmdname = process.env.NAME;
@@ -69,18 +69,18 @@ import moji from "moji";
 const kuroshiro = new Kuroshiro();
 const analyzer = new KuromojiAnalyzer();
 
-if (process.env.POLLY_LANG != 'ja-JP') {
+if (process.env.POLLY_LANG !== 'ja-JP') {
     kuroshiro.init(analyzer);
 }
 
 // describeVoices
-let descParams = {
+const descParams = {
     LanguageCode: process.env.POLLY_LANG
 };
 
 bot.editStatus("online", {
-    'name': '/' + cmdkey,
-    'type': 0
+    name: `/${cmdkey}`,
+    type: 0
 });
 
 bot.on("ready", () => {
@@ -91,7 +91,7 @@ bot.on("messageCreate", (msg) => {
     try {
         if (msg.author.bot) return;
 
-        if (msg.channel.id == TtoV_CHANNEL) {
+        if (msg.channel.id === TtoV_CHANNEL) {
             // メッセージを配列に入れる
             msgs.push(msg);
             // フラグがfalseなら
@@ -105,7 +105,7 @@ bot.on("messageCreate", (msg) => {
             // フラグがtrueなら何もしない
         }
     } catch (err) {
-        logger.error('Message Create Error: ' + err)
+        logger.error(`Message Create Error: ${err}`)
     }
 });
 
@@ -113,7 +113,7 @@ bot.connect();
 
 if (VOICE_CONNECTION) {
     VOICE_CONNECTION.on("userDisconnect", (userID) => {
-        logger.info('VC User Disconnect: ' + userID);
+        logger.info(`VC User Disconnect: ${userID}`);
     });
 }
 
@@ -126,7 +126,7 @@ const readText = async (msg) => {
 
         // .envのvoiceIdが数字かどうかで処理を分ける
         let voiceId = process.env.POLLY_VOICE;
-        if (!isNaN(process.env.POLLY_VOICE)) {
+        if (!Number.isNaN(process.env.POLLY_VOICE)) {
             voiceId = dvcResponse.Voices[process.env.POLLY_VOICE].Id;
         }
         logger.trace("readText Try");
@@ -141,7 +141,7 @@ const readText = async (msg) => {
 
         let content = msg.content;
         content = content.replace(/>.+?\n/g, '');
-        let textMsg = author + 'さん。' + content;
+        let textMsg = `${author}さん。${content}`;
         // 引用の削除
         textMsg = textMsg.replace(/>*\n/g, '');
         // 絵文字の置き換え
@@ -153,9 +153,9 @@ const readText = async (msg) => {
         // ディスコード内の飛び先省略
         textMsg = textMsg.replace(/<#([0-9]+?)>/g, (match, p1) => {
             const mentionChannel = msg.channel.guild.channels.find((cnl) => {
-                return cnl.id == p1;
+                return cnl.id === p1;
             });
-            return mentionChannel.name + 'チャンネル';
+            return `${mentionChannel.name}チャンネル`;
         });
         // メンションの置き換え
         textMsg = textMsg.replace(/<@!([0-9]+?)>/g, (match, p1) => {
@@ -163,7 +163,7 @@ const readText = async (msg) => {
             return mentionName.username;
         });
 
-        if (process.env.POLLY_LANG != 'ja-JP') {
+        if (process.env.POLLY_LANG !== 'ja-JP') {
             textMsg = await kuroshiro.convert(
                 moji(textMsg).convert('HK', 'ZK').toString(),
                 {
@@ -193,11 +193,11 @@ const readText = async (msg) => {
         }
 
         // synthesizeSpeech
-        let speechParams = {
+        const speechParams = {
             Engine: process.env.POLLY_TYPE,
             OutputFormat: 'ogg_vorbis',
             VoiceId: voiceId,
-            Text: '<prosody rate="fast">' + textMsg + '</prosody>',
+            Text: `<prosody rate="fast">${textMsg}</prosody>`,
             TextType: 'ssml'
         };
 
@@ -205,13 +205,13 @@ const readText = async (msg) => {
         const sscResponse = await client.send(sscCommand);
 
         // Send voice to VC.
-        let stream = sscResponse.AudioStream;
+        const stream = sscResponse.AudioStream;
         VOICE_CONNECTION.play(stream);
 
     }
     catch (err) {
         logger.error(err)
-        bot.createMessage(TtoV_CHANNEL, "エラー(214)が起きています" + "```" + err + "```");
+        bot.createMessage(TtoV_CHANNEL, `エラー(214)が起きています\`\`\`${err}\`\`\``);
     }
 
 
@@ -234,7 +234,7 @@ const readAllMessages = async () => {
             }
             logger.trace("readAllMessages While Ended");
         } catch (err) {
-            logger.error("readAllMessages Error: " + err)
+            logger.error(`readAllMessages Error: ${err}`)
         }
     }
     logger.trace("readAllMessages Ended");
@@ -244,7 +244,7 @@ const join = class CONNECTION_CTRL extends SlashCommand {
     constructor(creator) {
         super(creator, {
             name: cmdkey,
-            description: cmdname + 'の接続・接続解除',
+            description: `${cmdname}の接続・接続解除`,
         });
     }
 
@@ -257,9 +257,9 @@ const join = class CONNECTION_CTRL extends SlashCommand {
             const author = member.username;
 
             if (!VOICE_CONNECTION) {
-                logger.info("Connect to VC:" + voiceChannelID);
-                logger.info("Connect to Text:" + textChannelID);
-                logger.info("Connected by " + author);
+                logger.info(`Connect to VC:${voiceChannelID}`);
+                logger.info(`Connect to Text:${textChannelID}`);
+                logger.info(`Connected by ${author}`);
 
                 const vc = voiceChannelID;
 
@@ -270,21 +270,19 @@ const join = class CONNECTION_CTRL extends SlashCommand {
                         VOICE_CONNECTION = connection;
                     });
                     return "VCに接続します。";
-                } else {
-                    return "あなたはまだVCに居ないようです。どこに接続するか判断ができませんでした。";
                 }
-            } else {
-                logger.info("Disconnect from VC:" + voiceChannelID);
-                logger.info("Disconnect at Text:" + textChannelID);
-                logger.info("Disconnected by " + author);
-
-                VOICE_CONNECTION.disconnect();
-                VOICE_CONNECTION = null;
-                return "接続解除しました。"
+                return "あなたはまだVCに居ないようです。どこに接続するか判断ができませんでした。";
             }
+            logger.info(`Disconnect from VC:${voiceChannelID}`);
+            logger.info(`Disconnect at Text:${textChannelID}`);
+            logger.info(`Disconnected by ${author}`);
+
+            VOICE_CONNECTION.disconnect();
+            VOICE_CONNECTION = null;
+            return "接続解除しました。"
         } catch (err) {
             logger.error(err);
-            return "エラー(287)が起きています" + "```" + err + "```";
+            return `エラー(287)が起きています\`\`\`${err}\`\`\``;
         }
     }
 }
@@ -292,8 +290,8 @@ const join = class CONNECTION_CTRL extends SlashCommand {
 const dicadd = class DICT_ADD extends SlashCommand {
     constructor(creator) {
         super(creator, {
-            name: cmdkey + '-add',
-            description: cmdname + 'に辞書登録します',
+            name: `${cmdkey}-add`,
+            description: `${cmdname}に辞書登録します`,
             options: [{
                 type: CommandOptionType.STRING,
                 name: 'addword',
@@ -323,8 +321,8 @@ const dicadd = class DICT_ADD extends SlashCommand {
                 let i = 0;
                 let wordsetFlag = true;
                 wbook[guildId].forEach((wordset) => {
-                    if (wordset.before == before) {
-                        wbook[guildId][i]['after'] = after;
+                    if (wordset.before === before) {
+                        wbook[guildId][i].after = after;
                         wordsetFlag = false;
                     }
                     i = i + 1;
@@ -336,8 +334,8 @@ const dicadd = class DICT_ADD extends SlashCommand {
                 wbook[guildId] = [word];
             }
             fs.writeFileSync('wbook.json', JSON.stringify(wbook));
-            logger.info('DICT add: ' + before + ' -> ' + after);
-            return '辞書登録しました。 ：' + before + ' → ' + after;
+            logger.info(`DICT add: ${before} -> ${after}`);
+            return `辞書登録しました。 ：${before} → ${after}`;
         } catch (err) {
             logger.error(err);
         }
@@ -347,8 +345,8 @@ const dicadd = class DICT_ADD extends SlashCommand {
 const dicrm = class DICT_REMOVE extends SlashCommand {
     constructor(creator) {
         super(creator, {
-            name: cmdkey + '-rm',
-            description: cmdname + 'の辞書から、単語登録を削除します',
+            name: `${cmdkey}-rm`,
+            description: `${cmdname}の辞書から、単語登録を削除します`,
             options: [{
                 type: CommandOptionType.STRING,
                 name: 'rmword',
@@ -367,7 +365,7 @@ const dicrm = class DICT_REMOVE extends SlashCommand {
             if (wbook[guildId]) {
                 let i = 0;
                 wbook[guildId].forEach((wordset) => {
-                    if (wordset.before == before) {
+                    if (wordset.before === before) {
                         wbook[guildId].splice(i, 1);
                         worddelFlag = true;
                     }
@@ -376,12 +374,11 @@ const dicrm = class DICT_REMOVE extends SlashCommand {
             }
             fs.writeFileSync('wbook.json', JSON.stringify(wbook));
             if (worddelFlag) {
-                logger.info('DICT rm: ' + before);
-                return '辞書登録解除: ' + before;
-            } else {
-                logger.info('DICT rm fail: ' + before + ' not found.');
-                return '辞書に「' + before + '」という単語がありませんでした。';
+                logger.info(`DICT rm: ${before}`);
+                return `辞書登録解除: ${before}`;
             }
+            logger.info(`DICT rm fail: ${before} not found.`);
+            return `辞書に「${before}」という単語がありませんでした。`;
         } catch (err) {
             logger.error(err);
         }
@@ -405,6 +402,6 @@ creator
             })
         )
     )
-    .registerCommands(commands)
-    .syncCommands();
+await creator.registerCommands(commands)
+await creator.syncCommands();
 
