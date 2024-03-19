@@ -121,14 +121,14 @@ const readText = async (msg) => {
     logger.trace("readText Start");
     try {
         // Get VoiceID
-        const dvcCommand = new DescribeVoicesCommand(descParams);
-        const dvcResponse = await client.send(dvcCommand);
+        // const dvcCommand = new DescribeVoicesCommand(descParams);
+        // const dvcResponse = await client.send(dvcCommand);
 
         // .envのvoiceIdが数字かどうかで処理を分ける
-        let voiceId = process.env.POLLY_VOICE;
-        if (!Number.isNaN(process.env.POLLY_VOICE)) {
-            voiceId = dvcResponse.Voices[process.env.POLLY_VOICE].Id;
-        }
+        const voiceId = process.env.POLLY_VOICE;
+        // if (!Number.isNaN(process.env.POLLY_VOICE)) {
+        //     voiceId = dvcResponse.Voices[process.env.POLLY_VOICE].Id;
+        // }
         logger.trace("readText Try");
 
         // Make text to read
